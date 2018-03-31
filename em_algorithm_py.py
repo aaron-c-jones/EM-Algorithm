@@ -1,79 +1,159 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
 """
-Created on Tue Jan 24 15:39:44 2017
-
 @author: aaronjones
+@date: 2018-03-30
 """
-import numpy as np
 
-np.random.seed(1)
+import numpy
 
-mu=np.array([3.,-2.,1.])
-sigma=np.array([[10.,5.,4.],[5.,18.,7.],[4.,7.,9.]])
-data=np.random.multivariate_normal(mean=mu,cov=sigma,size=500)
-index=np.array([np.random.choice(a=[1,np.nan],size=500,p=[0.8,0.2]),
-                np.random.choice(a=[1,np.nan],size=500,p=[0.8,0.2]),
-                np.random.choice(a=[1,np.nan],size=500,p=[0.8,0.2])]).T
-md=np.multiply(data,index)
+numpy.random.seed(0)
 
-#np.savetxt("missing_data_test.csv",md,delimiter=",")
+n = 500
+mu = numpy.array([3., -2., 1.])
+sig = numpy.array(
+    [[10., 5., 4.], [5., 18., 7.], [4., 7., 9.]]
+)
+data = numpy.random.multivariate_normal(
+    mean=mu, cov=sig, size=n
+)
 
-def em_algorithm(md,max_it=100,tol_err=1e-12):
-    md=md[~np.isnan(md).all(axis=1)]
-    
-    n,p=md.shape
-    mod_rel_err=it=1.0
-    
-    mu_init=np.nanmean(md,axis=0)
-    pred=md.copy()
+index = numpy.array([
+    numpy.random.choice(a=[1, numpy.nan], size=n, p=[0.8, 0.2]),
+    numpy.random.choice(a=[1, numpy.nan], size=n, p=[0.8, 0.2]),
+    numpy.random.choice(a=[1, numpy.nan], size=n, p=[0.8, 0.2])
+]).T
+
+missing_data = numpy.multiply(data, index)
+
+
+def em_algorithm(
+    data, max_it=100, tol_err=1e-12
+):
+    data = data[~numpy.isnan(data).all(axis=1)]
+
+    n, p = data.shape
+    mod_rel_err = 1.0
+    it = 1.0
+    mu_init = numpy.nanmean(data, axis=0)
+
+    predicted_df = data.copy()
+
     for i in range(p):
-        pred[np.isnan(md[:,i]),i]=mu_init[i]
-    sig_init=(n-1)/float(n) * np.cov(pred.T)
-    
-    sig_init_reshape=sig_init.reshape(1,sig_init.size)
-    theta_init=np.append(mu_init,sig_init_reshape).reshape(sig_init_reshape.size+mu_init.size,1)
+        predicted_df[numpy.isnan(data[:, i]), i] = mu_init[i]
 
-    while mod_rel_err>tol_err and it<=max_it:
-        temp_m=temp_s=0
+    sig_init = (n - 1) / float(n) * numpy.cov(predicted_df.T)
+
+    sig_init_reshape = sig_init.reshape(1, sig_init.size)
+    theta_init = (
+        numpy.append(mu_init, sig_init_reshape)
+        .reshape(sig_init_reshape.size + mu_init.size, 1)
+    )
+
+    while mod_rel_err > tol_err and it <= max_it:
+        temp_m = temp_s = 0
 
         for i in range(n):
-            x_st=md[i,:].reshape(p,1).copy()
-            
-            if np.isnan(x_st).sum()!=0:
-                pos=np.argwhere(np.isnan(x_st))[:,0]
-                x_st[pos,:]=mu_init[pos].reshape(len(pos),1)+np.dot(np.dot(np.delete(sig_init[pos,:],pos,1),np.linalg.inv(np.delete(np.delete(sig_init,pos,0),pos,1))),np.delete(x_st,pos,0)-np.delete(mu_init.reshape(p,1),pos,0))
-                pred[i,:]=x_st.T
-            temp_m=temp_m+x_st
-        mu_new=temp_m/float(n)
-        
-        for i in range(n):
-            x_st=md[i,:].reshape(p,1)
-            s_st=np.dot(x_st,x_st.T)
-            pred_i=pred[i,:]
-            
-            if np.isnan(x_st).sum()!=0:
-                pos=np.argwhere(np.isnan(x_st))[:,0]
-                s_st[pos[:,None],pos]=sig_init[pos[:,None],pos]-np.dot(np.dot(np.delete(sig_init[pos,:],pos,1),np.linalg.inv(np.delete(np.delete(sig_init,pos,0),pos,1))),np.delete(sig_init[:,pos],pos,0))+np.dot(pred_i[pos].reshape(len(pred_i[pos]),1),pred_i[pos].reshape(1,len(pred_i[pos])))
-                s_st[np.delete(np.arange(p),pos,0)[:,None],pos]=np.dot(np.delete(x_st,pos,0),pred_i[pos].reshape(1,len(pred_i[pos])))
-                s_st[pos,np.delete(np.arange(p),pos,0)[None,:]]=s_st[np.delete(np.arange(p),pos,0),pos]
-            temp_s=temp_s+s_st
-        sig_new=temp_s/float(n)-np.dot(mu_new,mu_new.T)
-        
-        sig_new_reshape=sig_new.reshape(1,sig_new.size)
-        theta_new=np.append(mu_new,sig_new_reshape).reshape(sig_new_reshape.size+mu_new.size,1)
-        
-        #print mu_new
-        #print sig_new
-        
-        mod_rel_err=np.linalg.norm(theta_new-theta_init)/max([1,np.linalg.norm(theta_init)])
-        
-        it=it+1
-        
-        mu_init=mu_new.copy()
-        sig_init=sig_new.copy()
-        theta_init=theta_new.copy()
-    
-    return mu_new,sig_new,pred,it-1
+            x_st = data[i, :].reshape(p, 1).copy()
 
-mu_new,sig_new,pred,it=em_algorithm(md)
+            if numpy.isnan(x_st).sum() != 0:
+                pos = numpy.argwhere(numpy.isnan(x_st))[:, 0]
+                x_st[pos, :] = (
+                    mu_init[pos].reshape(len(pos), 1)
+                    + numpy.dot(
+                        numpy.dot(
+                            numpy.delete(sig_init[pos, :], pos, 1),
+                            numpy.linalg.inv(
+                                numpy.delete(
+                                    numpy.delete(
+                                        sig_init, pos, 0
+                                    ), pos, 1
+                                )
+                            )
+                        ),
+                        numpy.delete(x_st, pos, 0)
+                        - numpy.delete(mu_init.reshape(p, 1), pos, 0)
+                    )
+                )
+                predicted_df[i, :] = x_st.T
+
+            temp_m = temp_m + x_st
+
+        mu_updated = temp_m / float(n)
+
+        for i in range(n):
+            x_st = data[i, :].reshape(p, 1)
+            s_st = numpy.dot(x_st, x_st.T)
+            predicted_df_temp = predicted_df[i, :]
+
+            if numpy.isnan(x_st).sum() != 0:
+                pos = numpy.argwhere(numpy.isnan(x_st))[:, 0]
+                s_st[pos[:, None], pos] = (
+                    sig_init[pos[:, None], pos]
+                    - numpy.dot(
+                        numpy.dot(
+                            numpy.delete(sig_init[pos, :], pos, 1),
+                            numpy.linalg.inv(
+                                numpy.delete(
+                                    numpy.delete(
+                                        sig_init, pos, 0
+                                    ), pos, 1
+                                )
+                            )
+                        ),
+                        numpy.delete(sig_init[:, pos], pos, 0)
+                    )
+                    + numpy.dot(
+                        predicted_df_temp[pos].reshape(
+                            len(predicted_df_temp[pos]), 1
+                        ),
+                        predicted_df_temp[pos].reshape(
+                            1, len(predicted_df_temp[pos])
+                        )
+                    )
+                )
+                s_st[numpy.delete(numpy.arange(p), pos, 0)[:, None], pos] = (
+                    numpy.dot(
+                        numpy.delete(x_st, pos, 0),
+                        predicted_df_temp[pos].reshape(
+                            1, len(predicted_df_temp[pos])
+                        )
+                    )
+                )
+                s_st[pos, numpy.delete(numpy.arange(p), pos, 0)[None, :]] = (
+                    s_st[numpy.delete(numpy.arange(p), pos, 0), pos]
+                )
+
+            temp_s = temp_s + s_st
+
+        sig_updated = temp_s / float(n) - numpy.dot(mu_updated, mu_updated.T)
+
+        sig_updated_reshape = sig_updated.reshape(1, sig_updated.size)
+        theta_updated = (
+            numpy.append(mu_updated, sig_updated_reshape)
+            .reshape(sig_updated_reshape.size + mu_updated.size, 1)
+        )
+
+        mod_rel_err = (
+            numpy.linalg.norm(theta_updated - theta_init)
+            / max([1, numpy.linalg.norm(theta_init)]))
+
+        print(it, mod_rel_err)
+
+        it = it + 1
+
+        mu_init = mu_updated.copy()
+        sig_init = sig_updated.copy()
+        theta_init = theta_updated.copy()
+
+    return mu_updated, sig_updated, predicted_df
+
+
+mu_em, sig_em, pred_em = em_algorithm(missing_data)
+
+print('Original Mu: \n {0}'.format(numpy.round(mu, decimals=2)))
+print('Imputed Mu: \n {0}'.format(numpy.round(mu_em, decimals=2)))
+
+print('Original Sigma: \n {0}'.format(numpy.round(sig, decimals=2)))
+print('Imputed Sigma: \n {0}'.format(numpy.round(sig_em, decimals=2)))
+
+print('Missing Data: \n {0}'.format(numpy.round(missing_data, decimals=2)))
+print('Imputed Data: \n {0}'.format(numpy.round(pred_em, decimals=2)))
