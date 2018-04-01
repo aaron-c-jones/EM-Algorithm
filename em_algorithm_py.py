@@ -41,15 +41,16 @@ def em_algorithm(
         predicted_df[numpy.isnan(data[:, i]), i] = mu_init[i]
 
     sig_init = (n - 1) / float(n) * numpy.cov(predicted_df.T)
-
     sig_init_reshape = sig_init.reshape(1, sig_init.size)
+    
     theta_init = (
         numpy.append(mu_init, sig_init_reshape)
         .reshape(sig_init_reshape.size + mu_init.size, 1)
     )
 
     while mod_rel_err > tol_err and it <= max_it:
-        temp_m = temp_s = 0
+        temp_m = 0
+        temp_s = 0
 
         for i in range(n):
             x_st = data[i, :].reshape(p, 1).copy()
@@ -125,8 +126,8 @@ def em_algorithm(
             temp_s = temp_s + s_st
 
         sig_updated = temp_s / float(n) - numpy.dot(mu_updated, mu_updated.T)
-
         sig_updated_reshape = sig_updated.reshape(1, sig_updated.size)
+
         theta_updated = (
             numpy.append(mu_updated, sig_updated_reshape)
             .reshape(sig_updated_reshape.size + mu_updated.size, 1)
@@ -134,7 +135,8 @@ def em_algorithm(
 
         mod_rel_err = (
             numpy.linalg.norm(theta_updated - theta_init)
-            / max([1, numpy.linalg.norm(theta_init)]))
+            / max([1, numpy.linalg.norm(theta_init)])
+        )
 
         print(it, mod_rel_err)
 
