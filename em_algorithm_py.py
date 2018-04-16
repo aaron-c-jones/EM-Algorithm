@@ -138,7 +138,10 @@ def em_algorithm(
             / max([1, numpy.linalg.norm(theta_init)])
         )
 
-        print(it, mod_rel_err)
+        print(
+            'Iteration: {0}, Modified Relative Error: {1}'
+            .format(it, mod_rel_err)
+        )
 
         it = it + 1
 
